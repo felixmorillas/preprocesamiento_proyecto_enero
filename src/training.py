@@ -47,9 +47,9 @@ class Training:
         ]
         SUMMARY_COLS = [
             "model",
+            "precision_mean","precision_std",
             "roc_auc_mean","roc_auc_std",
             "recall_mean","recall_std",
-            "precision_mean","precision_std",
             "f1_mean","f1_std",
             "specificity_mean","specificity_std",
             "accuracy_mean","accuracy_std",
@@ -115,11 +115,13 @@ class Training:
                 accuracy_std=("accuracy", "std"),
                 precision_mean=("precision", "mean"),
                 precision_std=("precision", "std"),
-                threshold=("threshold", "first"),
-                clf_params=("clf_params", "first"),
+                threshold=("threshold", "first")
             )
-            .sort_values(by=["roc_auc_mean", "f1_mean"], ascending=False)
+            .sort_values(by=["precision_mean", "roc_auc_mean", "f1_mean"], ascending=False)
         ).reindex(columns=SUMMARY_COLS)
+
+        cv_folds_df   = cv_folds_df.round(4)
+        cv_summary_df = cv_summary_df.round(4)
 
         return cv_summary_df, cv_folds_df
 
