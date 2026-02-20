@@ -32,7 +32,7 @@ flags:
   run_drop_static: true
   run_transformation: true
   run_drop_correlated: true
-  run_cross_validation: true
+  run_cross_validation: false
   run_this_cell: false
 
 scenarios:
