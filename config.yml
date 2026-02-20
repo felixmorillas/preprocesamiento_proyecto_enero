@@ -1,0 +1,268 @@
+# ==============================
+# CONFIG — Proyecto Attrition
+# ==============================
+
+paths:
+  dataset_train: data/train.csv
+  dataset_test: data/test.csv
+  results_dir: results
+  models_dir: models
+  models_holdout_dir: models/holdout
+  models_full_dir: models/full
+
+target:
+  col: Attrition
+  value: "Yes"
+
+config:
+  max_examples: 10
+  sep_len: 50
+
+split:
+  test_size: 0.20
+  random_state: 42
+  stratify: true # split estratificado para mantener proporciones de clases
+
+cv:
+  n_splits: 5
+  shuffle: true
+  random_state: 42
+
+flags:
+  run_drop_static: true
+  run_transformation: true
+  run_drop_correlated: true
+  run_cross_validation: false
+
+scenarios:
+  S1:
+    top_n: 3
+    objective: [recall, f1, roc_auc]
+  S2:
+    top_n: 3
+    objective: [precision, specificity]
+  S3:
+    top_n: 3
+    objective: [f1, roc_auc]
+
+# ==============================
+# MODELOS + VARIANTES
+#   - Cada variante: variant_id + params + threshold
+#   - threshold se aplica sobre score continuo (ideal predict_proba[:,1])
+# ==============================
+
+models:
+  LDA:
+    class: LinearDiscriminantAnalysis
+    variants:
+      - variant_id: normal
+        threshold: 0.50
+        params:
+          solver: svd
+      - variant_id: balanced
+        threshold: 0.50
+        params:
+          solver: lsqr
+          shrinkage: auto
+      - variant_id: min_fp
+        threshold: 0.70
+        params:
+          solver: lsqr
+          shrinkage: 0.40
+      - variant_id: max_recall
+        threshold: 0.35
+        params:
+          solver: lsqr
+          shrinkage: 0.10
+
+  KNN:
+    class: KNeighborsClassifier
+    variants:
+      - variant_id: normal
+        threshold: 0.50
+        params:
+          n_neighbors: 15
+          weights: uniform
+      - variant_id: balanced
+        threshold: 0.50
+        params:
+          n_neighbors: 25
+          weights: distance
+      - variant_id: min_fp
+        threshold: 0.70
+        params:
+          n_neighbors: 45
+          weights: distance
+      - variant_id: max_recall
+        threshold: 0.35
+        params:
+          n_neighbors: 7
+          weights: distance
+
+  CART:
+    class: DecisionTreeClassifier
+    variants:
+      - variant_id: normal
+        threshold: 0.50
+        params:
+          random_state: ${split.random_state}
+          max_depth: null
+          min_samples_leaf: 1
+      - variant_id: balanced
+        threshold: 0.50
+        params:
+          random_state: ${split.random_state}
+          class_weight: balanced
+          max_depth: 8
+          min_samples_leaf: 5
+      - variant_id: min_fp
+        threshold: 0.70
+        params:
+          random_state: ${split.random_state}
+          max_depth: 4
+          min_samples_leaf: 10
+      - variant_id: max_recall
+        threshold: 0.35
+        params:
+          random_state: ${split.random_state}
+          class_weight: balanced
+          max_depth: null
+          min_samples_leaf: 1
+
+  RandomForest:
+    class: RandomForestClassifier
+    variants:
+      - variant_id: normal
+        threshold: 0.50
+        params:
+          random_state: ${split.random_state}
+          n_estimators: 300
+          max_depth: null
+          min_samples_leaf: 1
+          n_jobs: -1
+      - variant_id: balanced
+        threshold: 0.50
+        params:
+          random_state: ${split.random_state}
+          n_estimators: 500
+          max_depth: 12
+          min_samples_leaf: 3
+          class_weight: balanced_subsample
+          n_jobs: -1
+      - variant_id: min_fp
+        threshold: 0.70
+        params:
+          random_state: ${split.random_state}
+          n_estimators: 700
+          max_depth: 6
+          min_samples_leaf: 10
+          n_jobs: -1
+      - variant_id: max_recall
+        threshold: 0.35
+        params:
+          random_state: ${split.random_state}
+          n_estimators: 500
+          max_depth: null
+          min_samples_leaf: 1
+          class_weight: balanced_subsample
+          n_jobs: -1
+
+  NaiveBayes:
+    class: GaussianNB
+    variants:
+      - variant_id: normal
+        threshold: 0.50
+        params:
+          var_smoothing: 1.0e-09
+      - variant_id: balanced
+        threshold: 0.4
+        params:
+          var_smoothing: 1.0e-09
+      - variant_id: min_fp
+        threshold: 0.70
+        params:
+          var_smoothing: 1.0e-08
+      - variant_id: max_recall
+        threshold: 0.35
+        params:
+          var_smoothing: 1.0e-09
+
+  LogisticRegression:
+    class: LogisticRegression
+    variants:
+      - variant_id: normal
+        threshold: 0.50
+        params:
+          random_state: ${split.random_state}
+          max_iter: 2000
+          solver: lbfgs
+          C: 1.0
+      - variant_id: balanced
+        threshold: 0.50
+        params:
+          random_state: ${split.random_state}
+          max_iter: 2000
+          solver: lbfgs
+          C: 1.0
+          class_weight: balanced
+      - variant_id: min_fp
+        threshold: 0.70
+        params:
+          random_state: ${split.random_state}
+          max_iter: 2000
+          solver: lbfgs
+          C: 0.30
+      - variant_id: max_recall
+        threshold: 0.35
+        params:
+          random_state: ${split.random_state}
+          max_iter: 2000
+          solver: lbfgs
+          C: 2.0
+          class_weight: balanced
+
+  SVM(RBF):
+    class: SVC
+    variants:
+      - variant_id: normal
+        threshold: 0.50
+        params:
+          random_state: ${split.random_state}
+          kernel: rbf
+          C: 1.0
+          gamma: scale
+          probability: true
+      - variant_id: balanced
+        threshold: 0.50
+        params:
+          random_state: ${split.random_state}
+          kernel: rbf
+          C: 2.0
+          gamma: scale
+          probability: true
+          class_weight: balanced
+      - variant_id: min_fp
+        threshold: 0.70
+        params:
+          random_state: ${split.random_state}
+          kernel: rbf
+          C: 1.0
+          gamma: scale
+          probability: true
+      - variant_id: max_recall
+        threshold: 0.35
+        params:
+          random_state: ${split.random_state}
+          kernel: rbf
+          C: 5.0
+          gamma: scale
+          probability: true
+          class_weight: balanced
+
+# ==============================
+# Winners
+# ==============================
+winners:
+  scenario_1: pipeline_logisticregression_max_recall__full.pkl
+  scenario_2: pipeline_lda_balanced__full.pkl
+  scenario_3: pipeline_lda_max_recall__full.pkl
