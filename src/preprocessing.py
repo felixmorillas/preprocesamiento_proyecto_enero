@@ -4,7 +4,7 @@ import pandas as pd
 
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler, RobustScaler
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, RobustScaler, OrdinalEncoder
 from sklearn.impute import SimpleImputer
 
 
@@ -64,25 +64,73 @@ class DataPreprocessor:
 
 
     @staticmethod
-    def build_preprocessor_ohe_from_X(X: pd.DataFrame):
+    def build_preprocessor_ohe_from_X(X: pd.DataFrame, scaler: str="StandardScaler", encoder: str="OneHotEncoder"):
+
+        # ------------------------------
+        # Columnas numéricas y categóricas
+        # ------------------------------
         cat_cols = X.select_dtypes(include=["object", "category", "bool"]).columns.tolist()
         num_cols = X.select_dtypes(include=[np.number]).columns.tolist()
 
-        num_pipe = Pipeline(steps=[
-            ("imputer", SimpleImputer(strategy="median")),
-            ("scaler", StandardScaler()),
-            #("scaler", RobustScaler())
-        ])
+        # ------------------------------
+        # Scaler configurable
+        # ------------------------------
+        scaler = (scaler or "StandardScaler").strip()
 
-        cat_pipe = Pipeline(steps=[
-            ("imputer", SimpleImputer(strategy="most_frequent")),
-            ("ohe", OneHotEncoder(
+        if scaler == "StandardScaler":
+            scaler_obj = StandardScaler()
+        elif scaler == "RobustScaler":
+            scaler_obj = RobustScaler()
+        elif scaler.lower() in {"none", "no"}:
+            scaler_obj = None
+        else:
+            raise ValueError(f"Scaler no soportado: {scaler}")
+
+        num_steps = [("imputer", SimpleImputer(strategy="median"))]
+        if scaler_obj is not None:
+            num_steps.append(("scaler", scaler_obj))
+
+        num_pipe = Pipeline(steps=num_steps)
+
+        # ------------------------------
+        # Encoder configurable
+        # ------------------------------
+        encoder = (encoder or "OneHotEncoder").strip()
+
+        if encoder == "OneHotEncoder":
+            encoder_obj = OneHotEncoder(
                 handle_unknown="ignore",
                 drop="if_binary",
                 sparse_output=False
-            )),
-        ])
+            )
+            cat_pipe = Pipeline(steps=[
+                ("imputer", SimpleImputer(strategy="most_frequent")),
+                ("encoder", encoder_obj),
+            ])
 
+        elif encoder == "OrdinalEncoder":
+            # Para features no se usa LabelEncoder (es para y).
+            # La alternativa correcta en sklearn es OrdinalEncoder.
+            encoder_obj = OrdinalEncoder(
+                handle_unknown="use_encoded_value",
+                unknown_value=-1
+            )
+            cat_pipe = Pipeline(steps=[
+                ("imputer", SimpleImputer(strategy="most_frequent")),
+                ("encoder", encoder_obj),
+            ])
+
+        elif encoder.lower() in {"none", "no"}:
+            cat_pipe = Pipeline(steps=[
+                ("imputer", SimpleImputer(strategy="most_frequent")),
+            ])
+
+        else:
+            raise ValueError(f"Encoder no soportado: {encoder}")
+
+        # ------------------------------
+        # ColumnTransformer final
+        # ------------------------------
         preprocessor = ColumnTransformer(
             transformers=[
                 ("num", num_pipe, num_cols),
