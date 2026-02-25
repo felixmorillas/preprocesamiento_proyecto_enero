@@ -507,3 +507,48 @@ class EDAHelper:
 
             plt.tight_layout()
             plt.show()
+
+
+    @staticmethod
+    def add_iqr_outlier_flags_by_class(X_train, y_train, X_other, y_other, k=1.5, prefix="out_"):
+        """
+        Aprende límites IQR por clase usando SOLO X_train/y_train y añade flags a X_other.
+        Devuelve: X_other_con_flags
+        """
+
+        # numéricas (quito constantes y binarios 0/1 típicos)
+        num_cols = X_train.select_dtypes(include=[np.number]).columns.tolist()
+        num_cols = [c for c in num_cols if X_train[c].dropna().nunique() > 2]
+
+        # límites por clase y columna
+        limits = {}  # limits[(cls, col)] = (lower, upper)
+        for cls in [0, 1]:
+            Xc = X_train.loc[y_train == cls, num_cols]
+            for col in num_cols:
+                s = Xc[col].dropna()
+                if s.empty:
+                    continue
+                q1 = s.quantile(0.25)
+                q3 = s.quantile(0.75)
+                iqr = q3 - q1
+                limits[(cls, col)] = (q1 - k * iqr, q3 + k * iqr)
+
+        # flags en X_other
+        Xnew = X_other.copy()
+        out_any = pd.Series(False, index=X_other.index)
+
+        for col in num_cols:
+            flag = pd.Series(False, index=X_other.index)
+
+            for cls in [0, 1]:
+                idx = y_other[y_other == cls].index
+                if (cls, col) not in limits:
+                    continue
+                lower, upper = limits[(cls, col)]
+                flag.loc[idx] = ((X_other.loc[idx, col] < lower) | (X_other.loc[idx, col] > upper)).fillna(False)
+
+            Xnew[prefix + col] = flag.astype(int)
+            out_any |= flag
+
+        Xnew[prefix + "any"] = out_any.astype(int)
+        return Xnew
